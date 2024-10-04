@@ -2,3 +2,4 @@ __pycache__/
 dataset/
 *.pdf
 *.docx
+.DS_STORE
