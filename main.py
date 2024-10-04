@@ -1,5 +1,6 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
+import os
 
 
 class ExampleProgram:
@@ -38,6 +39,7 @@ class ExampleProgram:
         self.connection = DbConnector()
         self.db_connection = self.connection.db_connection
         self.cursor = self.connection.cursor
+        self.basepath = "/Users/bendiksolevag/Documents/NTNU/TDT4225/Exercise2"
 
     def create_tables(self):
         query = """
@@ -79,7 +81,24 @@ class ExampleProgram:
         self.db_connection.commit()
     
     def insert_users(self):
-        pass
+        # Create list of users who have documented activity labels
+        user_ids_with_labels = []
+        user_ids_with_labels_file = open(f"{self.basepath}/dataset/labeled_ids.txt", "r")
+        for user_id in user_ids_with_labels_file:
+            user_ids_with_labels.append(user_id.replace('\n', ''))
+
+        query = "INSERT INTO User (id, has_labels) VALUES "
+        i = 0
+        for user_id in os.listdir(f"{self.basepath}/dataset/data"):
+            if i != 0:
+                query += ','
+            has_label = '1' if user_id in user_ids_with_labels else '0'
+            query += f'(\'{user_id}\', \'{has_label}\')'
+            i += 1
+        
+        self.cursor.execute(query)
+        self.db_connection.commit()
+
 
 
 
@@ -90,9 +109,9 @@ def main():
     try:
         program = ExampleProgram()
         program.create_tables()
+        program.insert_users()
         
-        # Check that the table is dropped
-        program.show_tables()
+        
     except Exception as e:
         print("ERROR: Failed to use database:", e)
     finally:
