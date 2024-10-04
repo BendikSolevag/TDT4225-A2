@@ -1,6 +1,9 @@
 from DbConnector import DbConnector
 from tabulate import tabulate
 import os
+from datetime import datetime
+from tqdm import tqdm
+
 
 
 class ExampleProgram:
@@ -53,7 +56,7 @@ class ExampleProgram:
         self.cursor.execute(query)
         query = """
                 CREATE TABLE IF NOT EXISTS Activity (
-                    id INT NOT NULL,
+                    id INT NOT NULL AUTO_INCREMENT,
                     user_id VARCHAR(3) NOT NULL,
                     transportation_mode VARCHAR(15),
                     start_date_time DATETIME,
@@ -66,7 +69,7 @@ class ExampleProgram:
         self.cursor.execute(query)
         query = """
                 CREATE TABLE IF NOT EXISTS TrackPoint (
-                    id INT NOT NULL,
+                    id INT NOT NULL AUTO_INCREMENT,
                     activity_id INT NOT NULL,
                     lat DOUBLE,
                     lon DOUBLE,
@@ -100,23 +103,86 @@ class ExampleProgram:
         self.db_connection.commit()
 
 
+    def insert_activities_trackpoints(self):
+
+
+        query = "SELECT id, has_labels FROM User"
+        self.cursor.execute(query)
+        db_users = self.cursor.fetchall()
+
+        for i in tqdm(range(len(db_users))):
+            user_id, has_labels = db_users[i]
+            activity_filenames = os.listdir(self.basepath + f'/dataset/data/{user_id}/Trajectory')
+
+
+            for activity_filename in activity_filenames:
+                f = open(f'{self.basepath}/dataset/data/{user_id}/Trajectory/{activity_filename}', 'r')
+                
+                trackpoints = []
+                activity_id = 0
+                for i, line in enumerate(f):
+                    # Ignore 6 garbage lines at start of each file
+                    if i < 6:
+                        continue
+                    dets = line.replace('\n', '').split(',')
+                    lat = dets[0]
+                    lon = dets[1]
+                    altitude = dets[3]
+                    if altitude == -777:
+                        altitude = None
+                    date = dets[5]
+                    time = dets[6]
+
+                    dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S")
+                    
+                    # INSERT INTO TrackPoint (activity_id, lat, lon, altitude, date_time) VALUES:
+                    trackpoints.append((activity_id, lat, lon, altitude, dt.isoformat()))
+
+
+                # If the activity is of greater length than 2500 trackpoints, ignore it
+                if len(trackpoints) > 2500:
+                    continue
+
+                activity_user_id = user_id
+                activity_transportation_mode = None
+                activity_start_date_time = trackpoints[0][-1]
+                activity_end_date_time = trackpoints[-1][-1]
+
+
+                query = "INSERT INTO Activity (user_id, transportation_mode, start_date_time, end_date_time) VALUES (%s, %s, %s, %s)"
+                self.cursor.execute(query, (activity_user_id, activity_transportation_mode, activity_start_date_time, activity_end_date_time))
+
+                query = "SELECT id FROM Activity WHERE user_id = %s AND start_date_time = %s AND end_date_time = %s"
+                self.cursor.execute(query, (activity_user_id, activity_start_date_time, activity_end_date_time))
+                inserted_activity = self.cursor.fetchall()
+                if len(inserted_activity) > 1:
+                    raise ValueError('Identified more than one activity for given user and start/end date combination')
+                activity_id = inserted_activity[0][0]
+
+
+                for i in range(len(trackpoints)):
+                    tp = trackpoints[i]
+                    trackpoints[i] = (activity_id, tp[1], tp[2], tp[3], tp[4])
+            
+
+                query = "INSERT INTO TrackPoint (activity_id, lat, lon, altitude, date_time) VALUES (%s, %s, %s, %s, %s)"
+                self.cursor.executemany(query, trackpoints)
+                self.db_connection.commit()
+
 
 
 
 
 def main():
     program = None
-    try:
-        program = ExampleProgram()
-        program.create_tables()
-        program.insert_users()
+    
+    program = ExampleProgram()
+    program.create_tables()
+    program.insert_users()
+    program.insert_activities_trackpoints()
         
-        
-    except Exception as e:
-        print("ERROR: Failed to use database:", e)
-    finally:
-        if program:
-            program.connection.close_connection()
+    if program:
+        program.connection.close_connection()
 
 
 if __name__ == '__main__':
