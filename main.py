@@ -168,21 +168,91 @@ class ExampleProgram:
 
 
     def answer_one(self):
-
-        query = "SELECT COUNT(id) FROM User"
+        query = "SELECT COUNT(id) as unique_users FROM User"
         self.cursor.execute(query)
-        result = self.cursor.fetchall()
-        print(result)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
 
-        query = "SELECT COUNT(id) FROM Activity"
+        query = "SELECT COUNT(id) as unique_activities FROM Activity"
         self.cursor.execute(query)
-        result = self.cursor.fetchall()
-        print(result)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
 
-        query = "SELECT COUNT(id) FROM TrackPoint"
+        query = "SELECT COUNT(id) as unique_trackpoints FROM TrackPoint"
         self.cursor.execute(query)
-        result = self.cursor.fetchall()
-        print(result)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
+    
+    def answer_two(self):
+        query = """
+            SELECT AVG(activity_count) AS avg_activities_per_user
+            FROM (
+                SELECT user_id, COUNT(id) AS activity_count
+                FROM Activity
+                GROUP BY user_id
+            ) AS user_activity_counts;
+        """
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
+
+
+    def answer_three(self):
+        query = """
+            SELECT user_id, COUNT(id) AS activity_count
+            FROM Activity
+            GROUP BY user_id
+            ORDER BY activity_count DESC
+            LIMIT 20;
+        """
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
+
+
+    def answer_four(self):
+        query = """
+            SELECT user_id
+            FROM Activity
+            WHERE transportation_mode = "taxi"
+            GROUP BY user_id;
+            
+        """
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
+
+
+    def answer_five(self):
+        query = """
+            SELECT transportation_mode, COUNT(id) as activity_count
+            FROM Activity
+            WHERE transportation_mode is not NULL
+            GROUP BY transportation_mode
+            ORDER BY activity_count DESC;
+            
+        """
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
+
+
+    def answer_six(self):
+        query = """
+            SELECT 
+                YEAR(start_date_time) as year, 
+                COUNT(id) as activity_count, 
+                SUM(TIMESTAMPDIFF(HOUR, start_date_time, end_date_time)) AS total_hours
+            FROM Activity
+            GROUP BY year
+            ORDER BY year;
+            
+        """
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        print(tabulate(rows, headers=self.cursor.column_names))
+
+
 
 
 
@@ -193,11 +263,15 @@ def main():
     #program.create_tables()
     #program.insert_users()
     #program.insert_activities_trackpoints()
-    program.answer_one()
-    
+    program.answer_two()
+
     if program:
         program.connection.close_connection()
 
 
 if __name__ == '__main__':
     main()
+
+
+
+
