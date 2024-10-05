@@ -82,9 +82,6 @@ class ExampleProgram:
         for i in tqdm(range(len(db_users))):
             user_id, has_labels = db_users[i]
             activity_filenames = os.listdir(self.basepath + f'/dataset/data/{user_id}/Trajectory')
-            if i < 7:
-                continue
-
 
             for activity_filename in activity_filenames:
                 f = open(f'{self.basepath}/dataset/data/{user_id}/Trajectory/{activity_filename}', 'r')
@@ -120,24 +117,15 @@ class ExampleProgram:
                 activity_end_date_time = trackpoints[-1][-1]
 
                 if has_labels:
-                    
-                    
                     # Read data to dataframe
                     df = pd.read_csv(f'{self.basepath}/dataset/data/{user_id}/labels.txt', sep='\t')
-
                     df['Start Time'] = pd.to_datetime(df['Start Time'])
                     df['End Time'] = pd.to_datetime(df['End Time'])
-
                     s = pd.Timestamp(activity_start_date_time)
                     e = pd.Timestamp(activity_end_date_time)
-
-                    
-
                     # Keep only rows overlapping with the activity time period
                     df = df[df['Start Time'] < e]
                     df = df[ df['End Time'] > s]
-
-                    print(df)
 
                     max_overlap = None
                     max_overlap_label = None
@@ -147,8 +135,7 @@ class ExampleProgram:
                         start = max(s, row['Start Time'])
                         end = min(e, row['End Time'])
                         overlap = end - start
-                        print(overlap)
-                        
+
                         if counter == 1:
                             max_overlap = overlap
                             max_overlap_label = row['Transportation Mode']
@@ -157,16 +144,9 @@ class ExampleProgram:
                         if overlap > max_overlap:
                             max_overlap = overlap
                             max_overlap_label = row['Transportation Mode']
-                        
 
                     activity_transportation_mode = max_overlap_label
                     
-                    
-                    
-
-                    
-                    
-            
 
                 query = "INSERT INTO Activity (user_id, transportation_mode, start_date_time, end_date_time) VALUES (%s, %s, %s, %s)"
                 self.cursor.execute(query, (activity_user_id, activity_transportation_mode, activity_start_date_time, activity_end_date_time))
@@ -176,7 +156,7 @@ class ExampleProgram:
                 inserted_activity = self.cursor.fetchall()
                 if len(inserted_activity) > 1:
                     raise ValueError('Identified more than one activity for given user and start/end date combination')
-                activity_id = 0 #inserted_activity[0][0]
+                activity_id = inserted_activity[0][0]
 
 
                 for i in range(len(trackpoints)):
@@ -194,12 +174,10 @@ class ExampleProgram:
 
 def main():
     program = None
-    
     program = ExampleProgram()
     program.create_tables()
-    #program.insert_users()
+    program.insert_users()
     program.insert_activities_trackpoints()
-        
     if program:
         program.connection.close_connection()
 
