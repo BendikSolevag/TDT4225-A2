@@ -1,3 +1,4 @@
+import pandas as pd
 from DbConnector import DbConnector
 from tabulate import tabulate
 import os
@@ -8,35 +9,6 @@ from tqdm import tqdm
 
 class ExampleProgram:
 
-    def insert_data(self, table_name):
-        names = ['Bobby', 'Mc', 'McSmack', 'Board']
-        for name in names:
-            # Take note that the name is wrapped in '' --> '%s' because it is a string,
-            # while an int would be %s etc
-            query = "INSERT INTO %s (name) VALUES ('%s')"
-            self.cursor.execute(query % (table_name, name))
-        self.db_connection.commit()
-
-    def fetch_data(self, table_name):
-        query = "SELECT * FROM %s"
-        self.cursor.execute(query % table_name)
-        rows = self.cursor.fetchall()
-        print("Data from table %s, raw format:" % table_name)
-        print(rows)
-        # Using tabulate to show the table in a nice way
-        print("Data from table %s, tabulated:" % table_name)
-        print(tabulate(rows, headers=self.cursor.column_names))
-        return rows
-
-    def drop_table(self, table_name):
-        print("Dropping table %s..." % table_name)
-        query = "DROP TABLE %s"
-        self.cursor.execute(query % table_name)
-
-    def show_tables(self):
-        self.cursor.execute("SHOW TABLES")
-        rows = self.cursor.fetchall()
-        print(tabulate(rows, headers=self.cursor.column_names))
 
     def __init__(self):
         self.connection = DbConnector()
@@ -52,7 +24,6 @@ class ExampleProgram:
                    PRIMARY KEY (id)
                 )
                 """
-        # This adds table_name to the %s variable and executes the query
         self.cursor.execute(query)
         query = """
                 CREATE TABLE IF NOT EXISTS Activity (
@@ -65,7 +36,6 @@ class ExampleProgram:
                     FOREIGN KEY (user_id) REFERENCES User(id) ON DELETE CASCADE
                 )
                 """
-        # This adds table_name to the %s variable and executes the query
         self.cursor.execute(query)
         query = """
                 CREATE TABLE IF NOT EXISTS TrackPoint (
@@ -79,7 +49,6 @@ class ExampleProgram:
                     FOREIGN KEY (activity_id) REFERENCES Activity(id) ON DELETE CASCADE
                 )
                 """
-        # This adds table_name to the %s variable and executes the query
         self.cursor.execute(query)
         self.db_connection.commit()
     
@@ -113,6 +82,8 @@ class ExampleProgram:
         for i in tqdm(range(len(db_users))):
             user_id, has_labels = db_users[i]
             activity_filenames = os.listdir(self.basepath + f'/dataset/data/{user_id}/Trajectory')
+            if i < 7:
+                continue
 
 
             for activity_filename in activity_filenames:
@@ -148,6 +119,54 @@ class ExampleProgram:
                 activity_start_date_time = trackpoints[0][-1]
                 activity_end_date_time = trackpoints[-1][-1]
 
+                if has_labels:
+                    
+                    
+                    # Read data to dataframe
+                    df = pd.read_csv(f'{self.basepath}/dataset/data/{user_id}/labels.txt', sep='\t')
+
+                    df['Start Time'] = pd.to_datetime(df['Start Time'])
+                    df['End Time'] = pd.to_datetime(df['End Time'])
+
+                    s = pd.Timestamp(activity_start_date_time)
+                    e = pd.Timestamp(activity_end_date_time)
+
+                    
+
+                    # Keep only rows overlapping with the activity time period
+                    df = df[df['Start Time'] < e]
+                    df = df[ df['End Time'] > s]
+
+                    print(df)
+
+                    max_overlap = None
+                    max_overlap_label = None
+                    counter = 0
+                    for index, row in df.iterrows():
+                        counter += 1
+                        start = max(s, row['Start Time'])
+                        end = min(e, row['End Time'])
+                        overlap = end - start
+                        print(overlap)
+                        
+                        if counter == 1:
+                            max_overlap = overlap
+                            max_overlap_label = row['Transportation Mode']
+                            continue
+                        
+                        if overlap > max_overlap:
+                            max_overlap = overlap
+                            max_overlap_label = row['Transportation Mode']
+                        
+
+                    activity_transportation_mode = max_overlap_label
+                    
+                    
+                    
+
+                    
+                    
+            
 
                 query = "INSERT INTO Activity (user_id, transportation_mode, start_date_time, end_date_time) VALUES (%s, %s, %s, %s)"
                 self.cursor.execute(query, (activity_user_id, activity_transportation_mode, activity_start_date_time, activity_end_date_time))
@@ -157,7 +176,7 @@ class ExampleProgram:
                 inserted_activity = self.cursor.fetchall()
                 if len(inserted_activity) > 1:
                     raise ValueError('Identified more than one activity for given user and start/end date combination')
-                activity_id = inserted_activity[0][0]
+                activity_id = 0 #inserted_activity[0][0]
 
 
                 for i in range(len(trackpoints)):
@@ -178,7 +197,7 @@ def main():
     
     program = ExampleProgram()
     program.create_tables()
-    program.insert_users()
+    #program.insert_users()
     program.insert_activities_trackpoints()
         
     if program:
