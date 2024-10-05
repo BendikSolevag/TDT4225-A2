@@ -73,8 +73,6 @@ class ExampleProgram:
 
 
     def insert_activities_trackpoints(self):
-
-
         query = "SELECT id, has_labels FROM User"
         self.cursor.execute(query)
         db_users = self.cursor.fetchall()
@@ -169,15 +167,34 @@ class ExampleProgram:
                 self.db_connection.commit()
 
 
+    def answer_one(self):
+
+        query = "SELECT COUNT(id) FROM User"
+        self.cursor.execute(query)
+        result = self.cursor.fetchall()
+        print(result)
+
+        query = "SELECT COUNT(id) FROM Activity"
+        self.cursor.execute(query)
+        result = self.cursor.fetchall()
+        print(result)
+
+        query = "SELECT COUNT(id) FROM TrackPoint"
+        self.cursor.execute(query)
+        result = self.cursor.fetchall()
+        print(result)
+
 
 
 
 def main():
     program = None
     program = ExampleProgram()
-    program.create_tables()
-    program.insert_users()
-    program.insert_activities_trackpoints()
+    #program.create_tables()
+    #program.insert_users()
+    #program.insert_activities_trackpoints()
+    program.answer_one()
+    
     if program:
         program.connection.close_connection()
 
